@@ -30,7 +30,7 @@ trait SharedBehaviors {
       goto(Follower) using m.copy(config = initialConfig)
 
 
-    case Event(msg: AppendEntries[Command], m: Meta) =>
+    case Event(msg: AppendEntries[_], m: Meta) =>
       log.info("Got AppendEntries from a Leader, but am in Init state. Will ask for it's configuration and join Raft cluster.")
       leader() ! RequestConfiguration
       stay()
@@ -39,9 +39,9 @@ trait SharedBehaviors {
     // handle initial discovery of nodes, as opposed to initialization via `initialConfig`
     case Event(added: RaftMemberAdded, m: Meta) =>
       val newMembers = m.members + added.member
-      
+
       val initialConfig = ClusterConfiguration(newMembers)
-      
+
       if (added.keepInitUntil <= newMembers.size) {
         log.info("Discovered the required min. of {} raft cluster members, becoming Follower.", added.keepInitUntil)
         goto(Follower) using m.copy(config = initialConfig)
@@ -53,9 +53,9 @@ trait SharedBehaviors {
 
     case Event(removed: RaftMemberRemoved, m: Meta) =>
       val newMembers = m.config.members - removed.member
-            
+
       val waitingConfig = ClusterConfiguration(newMembers)
-      
+
       // keep waiting for others to be discovered
       log.debug("Removed one member, until now discovered {} raft cluster members, still waiting in Init until {} discovered.", newMembers.size, removed.keepInitUntil)
       stay() using m.copy(config = waitingConfig)

@@ -8,7 +8,7 @@ import config.RaftConfig
 
 private[raft] trait Leader {
   this: RaftActor =>
-  
+
   protected def raftConfig: RaftConfig
 
   private val HeartbeatTimerName = "heartbeat-timer"
@@ -48,11 +48,11 @@ private[raft] trait Leader {
         goto(Follower) using meta.forFollower // or maybe goto something else?
 
     // rogue Leader handling
-    case Event(append: AppendEntries[Command], m: LeaderMeta) if append.term > m.currentTerm =>
+    case Event(append: AppendEntries[_], m: LeaderMeta) if append.term > m.currentTerm =>
       log.info("Leader (@ {}) got AppendEntries from fresher Leader (@ {}), will step down and the Leader will keep being: {}", m.currentTerm, append.term, sender())
       stepDown(m)
 
-    case Event(append: AppendEntries[Command], m: LeaderMeta) if append.term <= m.currentTerm =>
+    case Event(append: AppendEntries[_], m: LeaderMeta) if append.term <= m.currentTerm =>
       log.warning("Leader (@ {}) got AppendEntries from rogue Leader ({} @ {}); It's not fresher than self. Will send entries, to force it to step down.", m.currentTerm, sender(), append.term)
       sendEntries(sender(), m)
       stay()
@@ -159,7 +159,7 @@ private[raft] trait Leader {
 
     if (willCommit) {
       val entries = replicatedLog.between(replicatedLog.committedIndex, indexOnMajority)
-      
+
       entries foreach { entry =>
         handleCommitIfSpecialEntry.applyOrElse(entry, default = handleNormalEntry)
 
@@ -188,7 +188,7 @@ private[raft] trait Leader {
   }
 
   private val handleNormalEntry: PartialFunction[Any, Unit] = {
-    case entry: Entry[Command] =>
+    case entry: Entry[_] =>
       log.info("Committing log at index: {}; Applying command: {}, will send result to client: {}", entry.index, entry.command, entry.client)
       val result = apply(entry.command) // todo what if we apply a message the actor didnt understand? should fail "nicely"
       entry.client foreach { _ ! result }

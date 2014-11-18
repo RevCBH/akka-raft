@@ -14,7 +14,7 @@ private[raft] trait Follower {
   protected def raftConfig: RaftConfig
 
   val followerBehavior: StateFunction = {
-    case Event(msg: ClientMessage[Command], m: Meta) =>
+    case Event(msg: ClientMessage[_], m: Meta) =>
       log.info("Follower got {} from client; Respond with last Leader that took write from: {}", msg, recentlyContactedByLeader)
       sender() ! LeaderIs(recentlyContactedByLeader, Some(msg))
       stay()
@@ -51,7 +51,7 @@ private[raft] trait Follower {
       sender() ! IAmInState(Follower)
       stay()
   }
-  
+
 
   def appendEntries(msg: AppendEntries[Command], m: Meta): State = {
     implicit val self = m.clusterSelf // todo this is getting pretty crap, revert to having Cluster awareness a trait IMO
@@ -70,7 +70,7 @@ private[raft] trait Follower {
       log.debug("Appending: " + msg.entries)
       leader ! append(msg.entries, m)
       replicatedLog = commitUntilLeadersIndex(m, msg)
-      
+
       val meta = maybeUpdateConfiguration(m, msg.entries.map(_.command))
       val metaWithUpdatedTerm = meta.copy(currentTerm = replicatedLog.lastTerm)
       acceptHeartbeat() using metaWithUpdatedTerm
@@ -104,7 +104,7 @@ private[raft] trait Follower {
     case _ :: moreEntries =>
       maybeUpdateConfiguration(meta, moreEntries)
   }
-  
+
   def commitUntilLeadersIndex(m: Meta, msg: AppendEntries[Command]): ReplicatedLog[Command] = {
     val entries = replicatedLog.between(replicatedLog.committedIndex, msg.leaderCommitId)
 
@@ -119,9 +119,9 @@ private[raft] trait Follower {
 
   private def senderIsCurrentLeader(): Unit =
     recentlyContactedByLeader = Some(sender())
-  
+
   private val handleNormalEntry: PartialFunction[Any, Unit] = {
-    case entry: Entry[Command] => apply(entry.command)
+    case entry: Entry[_] => apply(entry.command)
   }
 
   private val handleCommitIfSpecialEntry: PartialFunction[Any, Unit] = {
@@ -129,5 +129,5 @@ private[raft] trait Follower {
       // simply ignore applying cluster configurations onto the client state machine,
       // it's an internal thing and the client does not care about cluster config change.
   }
-  
+
 }

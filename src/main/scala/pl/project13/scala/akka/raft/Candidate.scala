@@ -12,7 +12,7 @@ private[raft] trait Candidate {
 
   val candidateBehavior: StateFunction = {
     // message from client, tell it that we know of no leader
-    case Event(msg: ClientMessage[Command], m: ElectionMeta) =>
+    case Event(msg: ClientMessage[_], m: ElectionMeta) =>
       log.info("Candidate got {} from client; Respond with anarchy - there is no leader.", msg)
       sender() ! LeaderIs(None, Some(msg))
       stay()
@@ -58,7 +58,7 @@ private[raft] trait Candidate {
     // end of election
 
     // handle appends
-    case Event(append: AppendEntries[Entry[Command]], m: ElectionMeta) =>
+    case Event(append: AppendEntries[_], m: ElectionMeta) =>
       val leaderIsAhead = append.term >= m.currentTerm
 
       if (leaderIsAhead) {
